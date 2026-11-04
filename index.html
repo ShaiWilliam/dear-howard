@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>DEAR HOWARD | Every step leads me to you.</title>
+  <!-- 引入 Three.js 3D 引擎 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- 引入 Google Fonts 質感中英文字體 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Noto+Serif+TC:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --gold: #f6d365;
+      --gold-glow: #fda085;
+      --sky-dark: #070b19;
+      --sky-mid: #162238;
+      --text-light: #f8f5f0;
+      --text-dim: rgba(248, 245, 240, 0.72);
+      --glass: rgba(18, 26, 48, 0.68);
+      --glass-border: rgba(246, 211, 101, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--sky-dark);
+      color: var(--text-light);
+      font-family: 'Noto Serif TC', 'Cormorant Garamond', serif;
+      touch-action: none;
+      overscroll-behavior: none;
+      position: fixed;
+    }
+
+    /* 隱藏後台觸發熱區 (右上角連點5下) */
+    #admin-secret-trigger {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 70px;
+      height: 70px;
+      z-index: 9999;
+      cursor: pointer;
+    }
+
+    /* 全局頂部雙時區與音樂狀態列 */
+    #top-hud {
+      position: fixed;
+      top: env(safe-area-inset-top, 12px);
+      left: 0;
+      width: 100%;
+      padding: 10px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      pointer-events: none;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    }
+    .clock-pill {
+      background: rgba(10, 15, 30, 0.55);
+      border: 1px solid rgba(246, 211, 101, 0.25);
+      backdrop-filter: blur(8px);
+      padding: 6px 12px;
+      border-radius: 999px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      pointer-events: auto;
+    }
+    .clock-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 8px var(--gold);
+    }
+
+    /* 場景容器設定 */
+    .stage {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1.4s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .stage.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 通用中英雙語字幕結構 (中文為主，英文為輔在下方) */
+    .bilingual-block {
+      text-align: center;
+      padding: 0 24px;
+      max-width: 560px;
+    }
+    .zh-main {
+      font-size: 1.25rem;
+      line-height: 1.75;
+      font-weight: 400;
+      color: var(--text-light);
+      letter-spacing: 0.08em;
+      text-shadow: 0 2px 15px rgba(246, 211, 101, 0.35);
+    }
+    .en-sub {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.02rem;
+      font-style: italic;
+      line-height: 1.4;
+      color: var(--text-dim);
+      margin-top: 6px;
+      letter-spacing: 0.06em;
+    }
+
+    /* 光遇風發光按鈕 */
+    .sky-btn {
+      margin-top: 24px;
+      padding: 12px 32px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(246,211,101,0.22), rgba(253,160,133,0.15));
+      border: 1px solid var(--gold);
+      color: var(--text-light);
+      font-family: inherit;
+      font-size: 0.95rem;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(246, 211, 101, 0.25);
+      transition: all 0.3s ease;
+      backdrop-filter: blur(6px);
+    }
+    .sky-btn:active {
+      transform: scale(0.95);
+      box-shadow: 0 0 30px rgba(246, 211, 101, 0.6);
+    }
+
+    /* ==================== STAGE 0: 電影感開場與密碼登入 ==================== */
+    #stage-intro {
+      background: radial-gradient(circle at 50% 35%, #1c2b4b 0%, #090d1c 70%, #05070f 100%);
+      z-index: 20;
+    }
+    #intro-star-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .intro-seq-box {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      width: 100%;
+      max-width: 460px;
+    }
+    .fade-item {
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 1.6s ease, transform 1.6s ease;
+    }
+    .fade-item.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #intro-salutation {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2rem;
+      font-style: italic;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+      margin-bottom: 22px;
+      text-shadow: 0 0 18px rgba(246,211,101,0.45);
+    }
+    #intro-opening-wrap {
+      margin-bottom: 34px;
+    }
+    #intro-logo-card {
+      width: 100%;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 28px 22px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.55), 0 0 30px rgba(246,211,101,0.12);
+    }
+    .logo-star-icon {
+      font-size: 28px;
+      color: var(--gold);
+      margin-bottom: 8px;
+      animation: floatSlow 3.5s ease-in-out infinite;
+    }
+    .logo-main-zh {
+      font-size: 1.45rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .logo-title-en {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      color: var(--gold);
+      margin-top: 2px;
+    }
+    .logo-sub-en {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 0.98rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      margin-bottom: 22px;
+    }
+    .passcode-label {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      letter-spacing: 0.1em;
+    }
+    .passcode-input {
+      width: 160px;
+      padding: 10px 14px;
+      font-size: 1.35rem;
+      text-align: center;
+      letter-spacing: 0.4em;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: rgba(8, 12, 24, 0.75);
+      color: var(--gold);
+      outline: none;
+      font-family: 'Cormorant Garamond', monospace;
+    }
+    .passcode-error {
+      color: #ff8a8a;
+      font-size: 0.8rem;
+      min-height: 20px;
+      margin-top: 8px;
+    }
+
+    /* ==================== STAGE 1: 3D 光遇世界 (距離與靠近) ==================== */
+    #stage-ch1 {
+      z-index: 15;
+    }
+    #three-container {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    /* 天空雙城極光投影層 */
+    #sky-projection-layer {
+      position: absolute;
+      top: 6%;
+      left: 0;
+      width: 100%;
+      height: 50%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 4%;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .sky-Aurora-card {
+      width: 47%;
+      height: 100%;
+      border-radius: 50% 50% 40% 40% / 35% 35% 65% 65%;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      mask-image: radial-gradient(ellipse at center, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 75%);
+      -webkit-mask-image: radial-gradient(ellipse at center, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 75%);
+      transition: filter 0.3s ease, opacity 0.3s ease;
+    }
+    .sky-city-tag {
+      position: absolute;
+      bottom: 12%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.85);
+      background: rgba(0,0,0,0.4);
+      padding: 3px 10px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+    /* 距離倒數與劇情字幕 HUD */
+    #ch1-hud {
+      position: absolute;
+      top: 11%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      text-align: center;
+      width: 92%;
+      pointer-events: none;
+    }
+    .km-badge {
+      display: inline-block;
+      padding: 6px 20px;
+      border-radius: 999px;
+      background: rgba(10, 16, 32, 0.65);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(8px);
+      margin-bottom: 14px;
+    }
+    .km-number {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: 0.06em;
+    }
+    /* 螢幕虛擬搖桿 */
+    #joystick-zone {
+      position: absolute;
+      bottom: 7%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(246, 211, 101, 0.4);
+      background: radial-gradient(circle, rgba(246,211,101,0.12) 0%, rgba(10,16,32,0.45) 100%);
+      backdrop-filter: blur(6px);
+      z-index: 6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      touch-action: none;
+    }
+    #joystick-knob {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff, var(--gold));
+      box-shadow: 0 0 20px var(--gold);
+      pointer-events: none;
+      transition: transform 0.08s ease-out;
+    }
+    #joystick-hint {
+      position: absolute;
+      bottom: -28px;
+      width: 240px;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      pointer-events: none;
+    }
+
+    /* ==================== STAGE 2: 午夜微型美術館 ==================== */
+    #stage-ch2 {
+      background: linear-gradient(180deg, #0d1326 0%, #1b192b 60%, #12101e 100%);
+      z-index: 15;
+      padding: 64px 0 30px;
+      justify-content: space-between;
+    }
+    #gallery-track {
+      width: 100%;
+      display: flex;
+      gap: 24px;
+      overflow-x: auto;
+      padding: 20px 32px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x;
+      align-items: center;
+    }
+    #gallery-track::-webkit-scrollbar { display: none; }
+    .art-frame-card {
+      flex: 0 0 78%;
+      max-width: 310px;
+      scroll-snap-align: center;
+      background: rgba(24, 28, 46, 0.85);
+      border: 2px solid rgba(246, 211, 101, 0.45);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.65), 0 0 25px rgba(246,211,101,0.12);
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+    .art-img-box {
+      width: 100%;
+      height: 230px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0a0e1a;
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .art-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform-origin: center;
+    }
+    .art-plaque {
+      text-align: left;
+      padding: 6px 4px;
+    }
+    .art-plaque-title {
+      font-size: 1.05rem;
+      color: var(--gold);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .art-plaque-date {
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .art-plaque-desc {
+      font-size: 0.88rem;
+      line-height: 1.6;
+      color: var(--text-light);
+    }
+
+    /* ==================== STAGE 3: 跨越太平洋的微光收音機 ==================== */
+    #stage-ch3 {
+      background: radial-gradient(circle at 50% 40%, #242138 0%, #0b0e1c 80%);
+      z-index: 15;
+      padding: 20px;
+    }
+    .radio-body {
+      width: 100%;
+      max-width: 350px;
+      background: linear-gradient(145deg, #2b2438, #191624);
+      border: 2px solid var(--glass-border);
+      border-radius: 26px;
+      padding: 24px 20px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.75), inset 0 0 25px rgba(246,211,101,0.08);
+      text-align: center;
+      margin: 18px 0;
+    }
+    .freq-screen {
+      background: #090d14;
+      border: 1px solid rgba(246, 211, 101, 0.4);
+      border-radius: 14px;
+      padding: 14px 10px;
+      margin-bottom: 16px;
+      box-shadow: inset 0 0 18px rgba(246, 211, 101, 0.2);
+    }
+    .freq-num {
+      font-family: 'Cormorant Garamond', monospace;
+      font-size: 2.4rem;
+      color: var(--gold);
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 12px var(--gold);
+    }
+    .freq-status {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 4px;
+      min-height: 20px;
+    }
+    .freq-notes-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .freq-chip {
+      font-size: 0.76rem;
+      padding: 5px 11px;
+      border-radius: 99px;
+      background: rgba(246,211,101,0.12);
+      border: 1px dashed rgba(246,211,101,0.45);
+      color: var(--gold);
+      cursor: pointer;
+    }
+    .freq-chip.done {
+      background: rgba(110, 231, 183, 0.2);
+      border-color: #6ee7b7;
+      color: #a7f3d0;
+    }
+    .radio-slider {
+      width: 100%;
+      accent-color: var(--gold);
+      height: 8px;
+      margin: 10px 0 14px;
+      touch-action: pan-x;
+    }
+    .voice-transcript-box {
+      min-height: 74px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.35);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ==================== STAGE 4: 擦拭迷霧與星空連線 ==================== */
+    #stage-ch4 {
+      background: #070b18;
+      z-index: 15;
+      padding: 20px;
+    }
+    .window-frame {
+      position: relative;
+      width: 90vw;
+      max-width: 350px;
+      height: 410px;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 2px solid var(--glass-border);
+      box-shadow: 0 15px 45px rgba(0,0,0,0.8);
+      margin: 16px 0;
+    }
+    #ch4-bg-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+    #fog-canvas, #star-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      touch-action: none;
+    }
+    #star-canvas {
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* ==================== STAGE 5: 未來開箱 ＆ 吹蠟燭 ＆ 掌心長信 ==================== */
+    #stage-ch5 {
+      background: radial-gradient(circle at 50% 30%, #2a2139 0%, #0c0f1d 85%);
+      z-index: 15;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .room-stage-box {
+      width: 92vw;
+      max-width: 360px;
+      min-height: 360px;
+      background: rgba(20, 24, 42, 0.78);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.65);
+      margin: 12px 0;
+    }
+    .furniture-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .furn-slot {
+      min-height: 82px;
+      border-radius: 14px;
+      border: 1px dashed rgba(246,211,101,0.28);
+      background: rgba(255,255,255,0.03);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      text-align: center;
+      opacity: 0.4;
+      transition: all 0.5s ease;
+    }
+    .furn-slot.placed {
+      opacity: 1;
+      border-style: solid;
+      border-color: var(--gold);
+      background: rgba(246,211,101,0.12);
+      box-shadow: 0 0 18px rgba(246,211,101,0.2);
+    }
+    .parcel-box-btn {
+      padding: 14px 24px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #d4a359, #9e6b30);
+      color: #fff;
+      font-weight: 600;
+      border: 2px solid var(--gold);
+      cursor: pointer;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.45);
+      text-align: center;
+    }
+
+    /* 蠟燭與掌心互動區 */
+    .candle-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 16px 8px;
+    }
+    .flame-icon {
+      font-size: 3.4rem;
+      filter: drop-shadow(0 0 22px #ff9d00);
+      animation: flicker 0.9s infinite alternate;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    @keyframes flicker {
+      0% { transform: scale(1) rotate(-2deg); }
+      100% { transform: scale(1.12) rotate(2deg); }
+    }
+    .palm-hold-btn {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      border: 2px solid var(--gold);
+      background: radial-gradient(circle, rgba(253,160,133,0.35), rgba(246,211,101,0.08));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.4rem;
+      margin: 16px auto;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(246,211,101,0.35);
+      position: relative;
+      touch-action: none;
+    }
+    .palm-hold-btn.pulsing {
+      animation: heartPulse 0.75s infinite;
+    }
+    @keyframes heartPulse {
+      0% { transform: scale(1); box-shadow: 0 0 20px rgba(253,160,133,0.4); }
+      50% { transform: scale(1.14); box-shadow: 0 0 45px rgba(253,160,133,0.9); }
+      100% { transform: scale(1); box-shadow: 0 0 20px rgba(253,160,133,0.4); }
+    }
+
+    /* 最終生日信與紀念登機證彈窗 */
+    #final-letter-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 18, 0.94);
+      z-index: 300;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+      padding: 36px 20px 60px;
+      touch-action: pan-y;
+    }
+    .letter-paper {
+      width: 100%;
+      max-width: 440px;
+      background: linear-gradient(180deg, #1b2238 0%, #121728 100%);
+      border: 1px solid var(--gold);
+      border-radius: 22px;
+      padding: 28px 22px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      margin-bottom: 24px;
+    }
+    .letter-content {
+      white-space: pre-line;
+      font-size: 1.02rem;
+      line-height: 1.9;
+      color: var(--text-light);
+      margin: 16px 0;
+    }
+    #ticket-canvas {
+      width: 100%;
+      max-width: 420px;
+      border-radius: 16px;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+      margin: 12px 0;
+    }
+
+    /* ==================== 超級隱藏後台管理中心 (SUPER ADMIN CMS) ==================== */
+    #admin-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 10, 20, 0.96);
+      z-index: 10000;
+      display: none;
+      flex-direction: column;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      touch-action: pan-y;
+    }
+    .admin-header {
+      padding: 14px 18px;
+      background: #141d33;
+      border-bottom: 1px solid rgba(246,211,101,0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .admin-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px;
+      background: #0e1526;
+      overflow-x: auto;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .admin-tab-btn {
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: transparent;
+      color: #cbd5e1;
+      font-size: 13px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .admin-tab-btn.active {
+      background: var(--gold);
+      color: #0b0f19;
+      font-weight: 600;
+      border-color: var(--gold);
+    }
+    .admin-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      touch-action: pan-y;
+    }
+    .admin-section { display: none; }
+    .admin-section.active { display: block; }
+    .admin-card {
+      background: #151f36;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .admin-card h4 {
+      color: var(--gold);
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .form-group {
+      margin-bottom: 10px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group input[type="password"],
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: #090e1a;
+      color: #fff;
+      font-size: 13px;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .form-group textarea {
+      min-height: 68px;
+      resize: vertical;
+    }
+    .admin-footer {
+      padding: 12px 18px;
+      background: #141d33;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .btn-admin {
+      padding: 9px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-save-local { background: #3b82f6; color: #fff; }
+    .btn-save-github { background: #10b981; color: #fff; }
+    .btn-export { background: #64748b; color: #fff; }
+
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 右上角隱形後台熱區：連點 5 下開啟超級後台 -->
+  <div id="admin-secret-trigger" title="連點5下開啟後台"></div>
+
+  <!-- 頂部雙時區即時時鐘列 (台北 vs 德州 College Station) -->
+  <div id="top-hud">
+    <div class="clock-pill">
+      <span class="clock-dot"></span>
+      <span id="clock-tw">台北 TPE --:--</span>
+      <span>|</span>
+      <span id="clock-us">德州 A&amp;M --:--</span>
+    </div>
+    <button id="bgm-toggle-btn" class="clock-pill" style="cursor:pointer; color:var(--gold);">
+      ♪ 音樂
+    </button>
+  </div>
+
+  <!-- ==================== STAGE 0: 電影質感開場與通關密碼 ==================== -->
+  <section id="stage-intro" class="stage active">
+    <canvas id="intro-star-canvas"></canvas>
+    <div class="intro-seq-box">
+      <!-- 第一段：Dear Howard, -->
+      <div id="intro-salutation" class="fade-item">Dear Howard,</div>
+
+      <!-- 第二段：停頓兩秒後浮現 (中文為主，英文為輔在下方) -->
+      <div id="intro-opening-wrap" class="bilingual-block fade-item">
+        <div id="intro-zh-line" class="zh-main">「親愛的 Howard，有些事情，我想讓你親眼看看……」</div>
+        <div id="intro-en-line" class="en-sub">There is something I want to show you…</div>
+      </div>
+
+      <!-- 第三段：浮現遊戲 Logo 與通關密碼鎖 -->
+      <div id="intro-logo-card" class="fade-item">
+        <div class="logo-star-icon">✦</div>
+        <div id="logo-zh-main" class="logo-main-zh">跨越時差的生日星旅</div>
+        <div id="logo-en-title" class="logo-title-en">DEAR HOWARD</div>
+        <div id="logo-en-sub" class="logo-sub-en">Every step leads me to you.</div>
+
+        <div class="passcode-label" id="passcode-Hint-text">請輸入 4 位數專屬通關密語開啟旅程</div>
+        <input id="passcode-input" class="passcode-input" type="tel" maxlength="4" placeholder="••••" />
+        <div id="passcode-error" class="passcode-error"></div>
+        <button id="start-journey-btn" class="sky-btn">點亮星光啟程 ➔</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== STAGE 1: 3D《光·遇》風格世界 ==================== -->
+  <section id="stage-ch1" class="stage">
+    <div id="three-container"></div>
+    <!-- 左右天空極光投影照片 (台灣街景 vs 德州夜色) -->
+    <div id="sky-projection-layer">
+      <div id="sky-photo-tw" class="sky-Aurora-card">
+        <span class="sky-city-tag" id="tag-city-tw">台灣・日常街景</span>
+      </div>
+      <div id="sky-photo-us" class="sky-Aurora-card">
+        <span class="sky-city-tag" id="tag-city-us">德州・星空夜色</span>
+      </div>
+    </div>
+
+    <!-- 公里數倒數與中英雙語字幕 -->
+    <div id="ch1-hud">
+      <div class="km-badge">
+        <div style="font-size:0.72rem; color:var(--text-dim); letter-spacing:0.12em;">TAIPEI ➔ TEXAS A&amp;M UNIVERSITY</div>
+        <div class="km-number"><span id="km-counter">12,680</span> KM</div>
+      </div>
+      <div class="bilingual-block" style="margin:0 auto;">
+        <div id="ch1-zh-sub" class="zh-main">我們隔著太平洋與十四個小時的時差……</div>
+        <div id="ch1-en-sub" class="en-sub">Across the Pacific and fourteen hours apart…</div>
+      </div>
+    </div>
+
+    <!-- 螢幕虛擬搖桿 -->
+    <div id="joystick-zone">
+      <div id="joystick-knob"></div>
+      <div id="joystick-hint">向上推動搖桿，向著天際線奔跑</div>
+    </div>
+  </section>
+
+  <!-- ==================== STAGE 2: 午夜微型美術館 ==================== -->
+  <section id="stage-ch2" class="stage">
+    <div class="bilingual-block">
+      <div id="ch2-title-zh" class="zh-main">【第二章】只為一人開放的午夜微型美術館</div>
+      <div id="ch2-title-en" class="en-sub">A Midnight Micro-Museum Curated Only For You</div>
+    </div>
+
+    <div id="gallery-track"></div>
+
+    <div style="text-align:center; padding-bottom:10px;">
+      <div style="font-size:0.78rem; color:var(--text-dim);">左右滑動欣賞畫作，走到底部點擊收音機</div>
+      <button id="to-ch3-btn" class="sky-btn">走向長廊盡頭的微光收音機 ➔</button>
+    </div>
+  </section>
+
+  <!-- ==================== STAGE 3: 跨越太平洋的微光收音機 ==================== -->
+  <section id="stage-ch3" class="stage">
+    <div class="bilingual-block">
+      <div id="ch3-title-zh" class="zh-main">【第三章】跨越太平洋的微光收音機</div>
+      <div id="ch3-title-en" class="en-sub">Tuning Into Your Frequency Across 12,680 KM</div>
+    </div>
+
+    <div class="radio-body">
+      <div class="freq-screen">
+        <div class="freq-num">FM <span id="freq-val">98.0</span></div>
+        <div id="freq-status" class="freq-status">沙沙雜訊中…請滑動旋鈕或點擊下方紀念頻率</div>
+      </div>
+
+      <!-- 貼心提示便條：點擊或滑動對準即可觸發 -->
+      <div id="freq-chips-box" class="freq-notes-row"></div>
+
+      <input id="radio-slider" class="radio-slider" type="range" min="88.0" max="115.0" step="0.1" value="98.0" />
+
+      <div id="voice-transcript" class="voice-transcript-box">
+        轉動調頻旋鈕，搜尋來自台灣的熟悉聲音……
+      </div>
+    </div>
+
+    <button id="to-ch4-btn" class="sky-btn">抬頭看看起霧的玻璃窗 ➔</button>
+  </section>
+
+  <!-- ==================== STAGE 4: 擦拭迷霧與星空連線 ==================== -->
+  <section id="stage-ch4" class="stage">
+    <div class="bilingual-block">
+      <div id="ch4-title-zh" class="zh-main">【第四章】指尖溫度：擦拭迷霧與星空連線</div>
+      <div id="ch4-title-en" class="en-sub">Wipe Away the Mist &amp; Connect Our Constellation</div>
+    </div>
+
+    <div class="window-frame" id="window-frame-box">
+      <img id="ch4-bg-photo" src="" alt="Memory" />
+      <canvas id="fog-canvas"></canvas>
+      <canvas id="star-canvas"></canvas>
+    </div>
+
+    <div id="ch4-hint-text" style="font-size:0.85rem; color:var(--gold); text-align:center; min-height:22px;">
+      請用手指在玻璃窗上來回輕擦，抹去我們之間的霧氣…
+    </div>
+    <button id="to-ch5-btn" class="sky-btn" style="display:none;">走進星空下的未來小屋 ➔</button>
+  </section>
+
+  <!-- ==================== STAGE 5: 未來房間開箱 ＆ 吹蠟燭 ＆ 掌心長信 ==================== -->
+  <section id="stage-ch5" class="stage">
+    <div class="bilingual-block">
+      <div id="ch5-title-zh" class="zh-main">【最終章】未來生活開箱與跨海許願</div>
+      <div id="ch5-title-en" class="en-sub">Unpacking Our Future &amp; Birthday Wish</div>
+    </div>
+
+    <div class="room-stage-box">
+      <!-- 4 格未來家具擺設 -->
+      <div id="furniture-grid" class="furniture-grid"></div>
+
+      <div id="unpack-quote-box" style="font-size:0.9rem; color:var(--gold); text-align:center; min-height:42px; margin:6px 0;">
+        點擊下方來自台灣的紙箱，把我們的未來一件件擺進房間裡吧！
+      </div>
+
+      <!-- 開箱紙箱按鈕 -->
+      <div id="unpack-trigger-Area">
+        <button id="parcel-btn" class="parcel-box-btn">📦 點擊開箱未來包裹 (<span id="parcel-count">0/4</span>)</button>
+      </div>
+
+      <!-- 吹蠟燭互動區 -->
+      <div id="candle-section" class="candle-wrap">
+        <div id="candle-flame" class="flame-icon" title="吹氣或長按熄滅">🕯️</div>
+        <div id="candle-prompt-zh" style="font-size:0.95rem; color:#fff; margin-bottom:6px;">
+          閉上眼睛許個願，對著手機麥克風輕輕吹一口氣（或直接長按燭光）
+        </div>
+        <button id="mic-enable-btn" class="sky-btn" style="margin-top:8px; padding:8px 20px; font-size:0.82rem;">
+          🎙️ 開啟麥克風吹熄蠟燭（或點此直接許願吹熄）
+        </button>
+      </div>
+
+      <!-- 5秒掌心心跳同步區 -->
+      <div id="palm-section" class="candle-wrap">
+        <div id="palm-btn" class="palm-hold-btn">✋</div>
+        <div id="palm-prompt-zh" style="font-size:0.92rem; color:var(--gold);">
+          請將拇指長按掌心 5 秒，接收來自台灣的心跳與溫度… (<span id="palm-timer">0.0</span>s)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 終極生日長信 ＆ 破關紀念票根彈窗 ==================== -->
+  <div id="final-letter-modal">
+    <div class="letter-paper">
+      <div style="color:var(--gold); font-family:'Cormorant Garamond',serif; font-size:1.5rem; margin-bottom:6px;">
+        Happy Birthday, Howard ✦
+      </div>
+      <div id="final-letter-body" class="letter-content"></div>
+    </div>
+
+    <div class="bilingual-block" style="margin-bottom:8px;">
+      <div class="zh-main" style="font-size:1.05rem;">專屬破關紀念登機證（可長按或點擊下載保存）</div>
+      <div class="en-sub">Commemorative Boarding Pass: Taipei ➔ Texas A&amp;M</div>
+    </div>
+    <canvas id="ticket-canvas" width="800" height="420"></canvas>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:10px;">
+      <button id="download-ticket-btn" class="sky-btn" style="margin-top:0;">📥 儲存紀念票根至手機</button>
+      <button id="replay-game-btn" class="sky-btn" style="margin-top:0; border-color:rgba(255,255,255,0.3);">↺ 重新體驗旅程</button>
+    </div>
+  </div>
+
+  <!-- ==================== 超級隱藏後台管理中心 (SUPER ADMIN CMS) ==================== -->
+  <div id="admin-modal">
+    <div class="admin-header">
+      <div>
+        <strong style="color:var(--gold); font-size:15px;">⚙️ DEAR HOWARD 超級後台控制中心</strong>
+        <div style="font-size:11px; color:#94a3b8;">免改程式碼・即時調校所有文本、照片自動壓縮與 GitHub 雲端同步</div>
+      </div>
+      <button id="close-admin-btn" class="btn-admin" style="background:#ef4444; color:#fff;">✕ 關閉後台</button>
+    </div>
+
+    <!-- 後台分頁標籤 -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" data-tab="tab-jump">⚡ 章節跳轉與參數</button>
+      <button class="admin-tab-btn" data-tab="tab-text-intro">📝 開場與第1~2章文本</button>
+      <button class="admin-tab-btn" data-tab="tab-text-end">📝 第3~5章與生日長信</button>
+      <button class="admin-tab-btn" data-tab="tab-media">🖼️ 照片(自動壓縮)與配樂</button>
+      <button class="admin-tab-btn" data-tab="tab-github">☁️ GitHub 雲端同步設定</button>
+    </div>
+
+    <div class="admin-body">
+      <!-- 分頁 1：快速跳轉與核心參數 -->
+      <div id="tab-jump" class="admin-section active">
+        <div class="admin-card">
+          <h4>🚀 關卡快速跳轉器（測試免重跑！）</h4>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-admin btn-save-local" onclick="jumpToStage(0)">跳至：開場動畫</button>
+            <button class="btn-admin btn-save-local" onclick="jumpToStage(1)">跳至：第1章 3D光遇</button>
+            <button class="btn-admin btn-save-local" onclick="jumpToStage(2)">跳至：第2章 美術館</button>
+            <button class="btn-admin btn-save-local" onclick="jumpToStage(3)">跳至：第3章 收音機</button>
+            <button class="btn-admin btn-save-local" onclick="jumpToStage(4)">跳至：第4章 擦窗星空</button>
+            <button class="btn-admin btn-save-local" onclick="jumpToStage(5)">跳至：第5章 開箱結局</button>
+            <button class="btn-admin btn-save-github" onclick="openFinalLetter()">直接預覽：生日信與紀念票根</button>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <h4>🎛️ 遊戲核心參數設定</h4>
+          <div class="form-group">
+            <label>4 位數開場通關密碼（預設 1119）</label>
+            <input type="text" id="cfg-passcode" />
+          </div>
+          <div class="form-group">
+            <label>第一章：台北到德州 A&amp;M 初始距離 (公里)</label>
+            <input type="number" id="cfg-totalKm" />
+          </div>
+          <div class="form-group">
+            <label>第一章：小人奔跑速度（每幀扣除公里數，建議 35 ~ 80）</label>
+            <input type="number" id="cfg-stepKm" />
+          </div>
+          <div class="form-group">
+            <label>背景音樂 (BGM) 音量 (0.1 ~ 1.0，講話時會自動降低)</label>
+            <input type="number" step="0.1" min="0.1" max="1.0" id="cfg-bgmVol" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 分頁 2：開場動畫與第1~2章文本 -->
+      <div id="tab-text-intro" class="admin-section">
+        <div class="admin-card">
+          <h4>🎬 電影質感開場動畫與 Logo 文字</h4>
+          <div class="form-group">
+            <label>第一幕稱呼 (英文)</label>
+            <input type="text" id="cfg-introSalutation" />
+          </div>
+          <div class="form-group">
+            <label>第二幕主要文字 (中文)</label>
+            <input type="text" id="cfg-introZh" />
+          </div>
+          <div class="form-group">
+            <label>第二幕輔助文字 (英文，顯示於中文下方)</label>
+            <input type="text" id="cfg-introEn" />
+          </div>
+          <div class="form-group">
+            <label>Logo 中文主標題</label>
+            <input type="text" id="cfg-logoZh" />
+          </div>
+          <div class="form-group">
+            <label>Logo 英文遊戲名稱</label>
+            <input type="text" id="cfg-logoEn" />
+          </div>
+          <div class="form-group">
+            <label>Logo 英文副標題</label>
+            <input type="text" id="cfg-logoSub" />
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <h4>🏃 第一章：3D 奔跑三階段雙語字幕</h4>
+          <div class="form-group">
+            <label>階段 1 (剛啟程) 中文 / 英文</label>
+            <input type="text" id="cfg-ch1Sub1Zh" style="margin-bottom:4px;" />
+            <input type="text" id="cfg-ch1Sub1En" />
+          </div>
+          <div class="form-group">
+            <label>階段 2 (跑到一半，天空漸清晰) 中文 / 英文</label>
+            <input type="text" id="cfg-ch1Sub2Zh" style="margin-bottom:4px;" />
+            <input type="text" id="cfg-ch1Sub2En" />
+          </div>
+          <div class="form-group">
+            <label>階段 3 (即將抵達終點) 中文 / 英文</label>
+            <input type="text" id="cfg-ch1Sub3Zh" style="margin-bottom:4px;" />
+            <input type="text" id="cfg-ch1Sub3En" />
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <h4>🖼️ 第二章：午夜微型美術館（3 幅典藏畫作文字）</h4>
+          <div id="admin-museum-fields"></div>
+        </div>
+      </div>
+
+      <!-- 分頁 3：第3~5章與最終長信文本 -->
+      <div id="tab-text-end" class="admin-section">
+        <div class="admin-card">
+          <h4>📻 第三章：微光收音機 3 組紀念頻率與語音台詞</h4>
+          <div id="admin-radio-fields"></div>
+        </div>
+
+        <div class="admin-card">
+          <h4>📦 第五章：未來房間開箱 4 件物品名稱與期許短句</h4>
+          <div id="admin-unpack-fields"></div>
+        </div>
+
+        <div class="admin-card">
+          <h4>💌 最終章：吹蠟燭提示、生日長信與紀念票根</h4>
+          <div class="form-group">
+            <label>吹蠟燭提示文字</label>
+            <input type="text" id="cfg-candlePrompt" />
+          </div>
+          <div class="form-group">
+            <label>終極親筆生日長信（支援換行）</label>
+            <textarea id="cfg-finalLetter" style="min-height:150px;"></textarea>
+          </div>
+          <div class="form-group">
+            <label>破關紀念票根底部祝福短句</label>
+            <input type="text" id="cfg-ticketNote" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 分頁 4：照片自動壓縮上傳與音訊管理 -->
+      <div id="tab-media" class="admin-section">
+        <div class="admin-card">
+          <h4>📸 照片上傳（內建自動壓縮瘦身器，免怕大檔卡頓！）</h4>
+          <p style="font-size:12px; color:#94a3b8; margin-bottom:12px;">
+            選取手機或電腦照片後，系統會自動壓縮為高畫質輕量圖檔，可直接預覽或一鍵同步至 GitHub。
+          </p>
+          <div class="form-group">
+            <label>【第1章】台灣街景天空照</label>
+            <input type="file" accept="image/*" onchange="handleImageUpload(event, 'ch1PhotoTw')" />
+          </div>
+          <div class="form-group">
+            <label>【第1章】德州夜色天空照</label>
+            <input type="file" accept="image/*" onchange="handleImageUpload(event, 'ch1PhotoUs')" />
+          </div>
+          <div class="form-group">
+            <label>【第2章】美術館畫作 1 照片</label>
+            <input type="file" accept="image/*" onchange="handleImageUpload(event, 'museum0')" />
+          </div>
+          <div class="form-group">
+            <label>【第2章】美術館畫作 2 照片</label>
+            <input type="file" accept="image/*" onchange="handleImageUpload(event, 'museum1')" />
+          </div>
+          <div class="form-group">
+            <label>【第2章】美術館畫作 3 照片</label>
+            <input type="file" accept="image/*" onchange="handleImageUpload(event, 'museum2')" />
+          </div>
+          <div class="form-group">
+            <label>【第4章＆紀念票根】擦拭玻璃窗主視覺合照</label>
+            <input type="file" accept="image/*" onchange="handleImageUpload(event, 'ch4MainPhoto')" />
+          </div>
+          <div id="compress-status" style="font-size:12px; color:#6ee7b7; margin-top:6px;"></div>
+        </div>
+
+        <div class="admin-card">
+          <h4>🎵 配樂與真實語音設定（支援輸入檔案路徑或上傳音檔）</h4>
+          <div class="form-group">
+            <label>全局背景配樂 (BGM MP3 網址或 assets/bgm.mp3)</label>
+            <input type="text" id="cfg-bgmUrl" />
+            <input type="file" accept="audio/*" onchange="handleAudioUpload(event, 'bgmUrl')" style="margin-top:4px;" />
+          </div>
+          <div class="form-group">
+            <label>收音機語音 1 音檔路徑或上傳</label>
+            <input type="text" id="cfg-voice0" />
+            <input type="file" accept="audio/*" onchange="handleAudioUpload(event, 'voice0')" style="margin-top:4px;" />
+          </div>
+          <div class="form-group">
+            <label>收音機語音 2 音檔路徑或上傳</label>
+            <input type="text" id="cfg-voice1" />
+            <input type="file" accept="audio/*" onchange="handleAudioUpload(event, 'voice1')" style="margin-top:4px;" />
+          </div>
+          <div class="form-group">
+            <label>收音機語音 3 音檔路徑或上傳</label>
+            <input type="text" id="cfg-voice2" />
+            <input type="file" accept="audio/*" onchange="handleAudioUpload(event, 'voice2')" style="margin-top:4px;" />
+          </div>
+          <div class="form-group">
+            <label>第5章吹熄蠟燭後：生日快樂歌／祝福語音</label>
+            <input type="text" id="cfg-bdayAudio" />
+            <input type="file" accept="audio/*" onchange="handleAudioUpload(event, 'bdayAudio')" style="margin-top:4px;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 分頁 5：GitHub 雲端一鍵同步設定 -->
+      <div id="tab-github" class="admin-section">
+        <div class="admin-card">
+          <h4>☁️ GitHub 雲端直連同步（讓美國的 Howard 即時看到更新）</h4>
+          <p style="font-size:12px; color:#94a3b8; margin-bottom:10px;">
+            填入你的 GitHub 帳號、倉庫名稱與 Token 後，點擊下方綠色「一鍵同步至 GitHub」，系統就會自動把所有修改後的文字、壓縮照片與音檔寫入你的 GitHub 倉庫 `config.json` 中！
+          </p>
+          <div class="form-group">
+            <label>GitHub 帳號名稱 (Username，例如：wll-studio)</label>
+            <input type="text" id="gh-owner" placeholder="你的 GitHub 帳號" />
+          </div>
+          <div class="form-group">
+            <label>GitHub 倉庫名稱 (Repository Name，例如：dear-howard)</label>
+            <input type="text" id="gh-repo" placeholder="dear-howard" />
+          </div>
+          <div class="form-group">
+            <label>分支名稱 (Branch，預設為 main)</label>
+            <input type="text" id="gh-branch" value="main" />
+          </div>
+          <div class="form-group">
+            <label>GitHub Personal Access Token (PAT 金鑰，僅保存在你的瀏覽器本機)</label>
+            <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+          </div>
+          <div id="gh-sync-status" style="font-size:13px; color:var(--gold); margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-footer">
+      <button class="btn-admin btn-save-local" onclick="saveAdminToLocal()">💾 套用並儲存於本機預覽</button>
+      <button class="btn-admin btn-save-github" onclick="syncConfigToGitHub()">🚀 一鍵同步發布至 GitHub 雲端</button>
+      <button class="btn-admin btn-export" onclick="exportConfigJson()">📥 下載 config.json 備份</button>
+    </div>
+  </div>
+
+  <!-- 隱藏音訊播放器 -->
+  <audio id="bgm-player" loop crossorigin="anonymous"></audio>
+  <audio id="voice-player" crossorigin="anonymous"></audio>
+
+  <script>
+    /******************************************************************
+     * 1. 預設全局資料庫 (DEFAULT_CONFIG) - 所有內容皆可由超級後台修改
+     ******************************************************************/
+    const DEFAULT_CONFIG = {
+      passcode: "1119",
+      totalKm: 12680,
+      stepKm: 45,
+      bgmVol: 0.45,
+      introSalutation: "Dear Howard,",
+      introZh: "「親愛的 Howard，有些事情，我想讓你親眼看看……」",
+      introEn: "There is something I want to show you…",
+      logoZh: "跨越時差的生日星旅",
+      logoEn: "DEAR HOWARD",
+      logoSub: "Every step leads me to you.",
+      ch1Sub1Zh: "我們隔著太平洋與十四個小時的時差……",
+      ch1Sub1En: "Across the Pacific and fourteen hours apart…",
+      ch1Sub2Zh: "但你往前奔跑的每一步，都在讓彼此的世界更清晰。",
+      ch1Sub2En: "Yet every step forward brings our two worlds into focus.",
+      ch1Sub3Zh: "12,680 公里的思念盡頭，我就在這裡等你。",
+      ch1Sub3En: "At the end of 12,680 kilometers of longing, I am right here.",
+      ch1PhotoTw: "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=900&q=80",
+      ch1PhotoUs: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=900&q=80",
+      ch4MainPhoto: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=900&q=80",
+      bgmUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=ambient-piano-112191.mp3",
+      bdayAudio: "",
+      museum: [
+        {
+          title: "典藏編號 #01｜最初的微笑",
+          date: "Our First Chapter",
+          desc: "那時候的我們還不知道，未來會跨越半個地球思念彼此。但現在回頭看，那一天你的笑容早就把我的心定格了。",
+          img: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          title: "典藏編號 #02｜並肩走過的風景",
+          date: "Unforgettable Journey",
+          desc: "別人眼裡只是尋常的街角與日常，因為身邊的人是你，全都變成了我最想反覆溫習的館藏。",
+          img: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          title: "典藏編號 #03｜飛往德州前的約定",
+          date: "Taipei ➔ Texas A&M",
+          desc: "看著你為了夢想在 Texas A&M 努力發光，我既驕傲又想念。不管距離多遠，我永遠是你最堅定的後盾。",
+          img: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80"
+        }
+      ],
+      radio: [
+        {
+          freq: "92.5",
+          label: "FM 92.5｜相遇的那天",
+          transcript: "「喂喂，聽得到嗎？Howard，這是來自台北的頻道。每次想你的時候，我都會翻開我們的合照，謝謝你出現在我的生命裡。」",
+          audio: ""
+        },
+        {
+          freq: "104.2",
+          label: "FM 104.2｜你在德州的日常",
+          transcript: "「一個人在德州唸書趕報告很辛苦對吧？累的時候記得抬頭看看星空，台北的我也正在為你加油喔！」",
+          audio: ""
+        },
+        {
+          freq: "111.9",
+          label: "FM 111.9｜11/19 生日專屬頻率",
+          transcript: "「親愛的壽星，祝你生日快樂！現在請抬頭看看起霧的玻璃窗，把霧氣擦乾，我有個未來的畫面想給你看……」",
+          audio: ""
+        }
+      ],
+      unpack: [
+        { icon: "☕", name: "成對的專屬馬克杯", quote: "等這段遠距離結束，我的杯子就能每天早上真正靠在你的杯子旁邊了。" },
+        { icon: "🛋️", name: "溫暖的雙人沙發靠枕", quote: "以後不用再隔著螢幕視訊入睡，週末窩在同一張沙發上看電影吧。" },
+        { icon: "✈️", name: "環遊世界的雙人機票", quote: "從台北到德州只是起點，未來我們還要一起去蒐集全世界的風景。" },
+        { icon: "🖼️", name: "裝滿回憶的合照相框", quote: "不管未來房間長什麼樣子，只要有你在的地方，就是我們的家。" }
+      ],
+      candlePrompt: "閉上眼睛許個願，對著手機麥克風輕輕吹一口氣（或長按燭火）",
+      finalLetter: "親愛的 Howard：\n\n生日快樂！\n雖然今年沒辦法直接飛到德州親手為你插上蠟燭，但我把這 12,680 公里的想念，全部寫進了這個屬於我們的小小世界裡。\n\n在 Texas A&M 努力的每一天，請記得台灣永遠有一個人在為你驕傲、為你守候。\n\nEvery step leads me to you.\n等我們下次見面，再把所有欠你的擁抱一次補齊！\n\n永遠愛你的我 敬上",
+      ticketNote: "VALID FOREVER • EVERY STEP LEADS ME TO YOU"
+    };
+
+    let CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+    /******************************************************************
+     * 2. 載入設定檔 (優先讀取同目錄下 config.json，其次讀取本機快取)
+     ******************************************************************/
+    async function loadInitialConfig() {
+      try {
+        const res = await fetch('./config.json?t=' + Date.now());
+        if (res.ok) {
+          const remoteCfg = await res.json();
+          CONFIG = Object.assign({}, DEFAULT_CONFIG, remoteCfg);
+        } else {
+          const localSaved = localStorage.getItem('DEAR_HOWARD_CONFIG');
+          if (localSaved) CONFIG = Object.assign({}, DEFAULT_CONFIG, JSON.parse(localSaved));
+        }
+      } catch (e) {
+        const localSaved = localStorage.getItem('DEAR_HOWARD_CONFIG');
+        if (localSaved) CONFIG = Object.assign({}, DEFAULT_CONFIG, JSON.parse(localSaved));
+      }
+      applyConfigToUI();
+    }
+
+    function applyConfigToUI() {
+      // 開場與 Logo
+      document.getElementById('intro-salutation').textContent = CONFIG.introSalutation;
+      document.getElementById('intro-zh-line').textContent = CONFIG.introZh;
+      document.getElementById('intro-en-line').textContent = CONFIG.introEn;
+      document.getElementById('logo-zh-main').textContent = CONFIG.logoZh;
+      document.getElementById('logo-en-title').textContent = CONFIG.logoEn;
+      document.getElementById('logo-en-sub').textContent = CONFIG.logoSub;
+
+      // 第一章天空圖與初始公里數
+      document.getElementById('sky-photo-tw').style.backgroundImage = `url('${CONFIG.ch1PhotoTw}')`;
+      document.getElementById('sky-photo-us').style.backgroundImage = `url('${CONFIG.ch1PhotoUs}')`;
+      currentKm = Number(CONFIG.totalKm) || 12680;
+      document.getElementById('km-counter').textContent = currentKm.toLocaleString();
+      document.getElementById('ch1-zh-sub').textContent = CONFIG.ch1Sub1Zh;
+      document.getElementById('ch1-en-sub').textContent = CONFIG.ch1Sub1En;
+
+      // 第二章美術館渲染
+      renderMuseumCards();
+
+      // 第三章收音機頻率便條渲染
+      renderRadioChips();
+
+      // 第四章主視覺合照
+      document.getElementById('ch4-bg-photo').src = CONFIG.ch4MainPhoto;
+
+      // 第五章開箱與生日信
+      renderUnpackGrid();
+      document.getElementById('candle-prompt-zh').textContent = CONFIG.candlePrompt;
+      document.getElementById('final-letter-body').textContent = CONFIG.finalLetter;
+
+      // 背景音樂設定
+      const bgmPlayer = document.getElementById('bgm-player');
+      if (CONFIG.bgmUrl && bgmPlayer.src !== CONFIG.bgmUrl) {
+        bgmPlayer.src = CONFIG.bgmUrl;
+      }
+      bgmPlayer.volume = Number(CONFIG.bgmVol) || 0.45;
+    }
+
+    /******************************************************************
+     * 3. 台北 (Asia/Taipei) vs 德州 A&M (America/Chicago) 即時雙時鐘
+     ******************************************************************/
+    function updateDualClocks() {
+      const now = new Date();
+      const twStr = now.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false });
+      const usStr = now.toLocaleTimeString('en-US', { timeZone: 'America/Chicago', hour: '2-digit', minute: '2-digit', hour12: false });
+      document.getElementById('clock-tw').textContent = `台北 TPE ${twStr}`;
+      document.getElementById('clock-us').textContent = `德州 A&M ${usStr}`;
+    }
+    setInterval(updateDualClocks, 1000);
+    updateDualClocks();
+
+    /******************************************************************
+     * 4. STAGE 0: 電影感開場順序動畫與通關密語驗證
+     ******************************************************************/
+    function playIntroSequence() {
+      const sal = document.getElementById('intro-salutation');
+      const openWrap = document.getElementById('intro-opening-wrap');
+      const logoCard = document.getElementById('intro-logo-card');
+
+      sal.classList.remove('show');
+      openWrap.classList.remove('show');
+      logoCard.classList.remove('show');
+
+      // 1. 先浮現 Dear Howard,
+      setTimeout(() => { sal.classList.add('show'); }, 350);
+      // 2. 停頓兩秒後，慢慢浮現中英雙語開場句
+      setTimeout(() => { openWrap.classList.add('show'); }, 2400);
+      // 3. 最後浮現遊戲 Logo 與通關密語鎖
+      setTimeout(() => { logoCard.classList.add('show'); }, 4800);
+    }
+
+    // 星空背景粒子 (開場)
+    function initIntroStars() {
+      const cvs = document.getElementById('intro-star-canvas');
+      const ctx = cvs.getContext('2d');
+      cvs.width = window.innerWidth;
+      cvs.height = window.innerHeight;
+      const stars = Array.from({ length: 75 }, () => ({
+        x: Math.random() * cvs.width,
+        y: Math.random() * cvs.height,
+        r: Math.random() * 1.8 + 0.4,
+        a: Math.random(),
+        s: Math.random() * 0.015 + 0.005
+      }));
+      function draw() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        stars.forEach(st => {
+          st.a += st.s;
+          const alpha = (Math.sin(st.a) + 1) / 2 * 0.85 + 0.15;
+          ctx.fillStyle = `rgba(246, 211, 101, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    // Web Audio 合成空靈風鈴聲與心跳聲 (免外部音效檔也能有極致體驗)
+    let audioCtx = null;
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSkyChime(freq = 528) {
+      try {
+        ensureAudioContext();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + 1.2);
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.4);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.4);
+      } catch (e) {}
+    }
+
+    function playHeartbeatThump() {
+      try {
+        ensureAudioContext();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(75, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(38, audioCtx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.45, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.24);
+        if (navigator.vibrate) navigator.vibrate([55, 70, 35]);
+      } catch (e) {}
+    }
+
+    // 驗證通關密碼並進入第一章
+    document.getElementById('start-journey-btn').addEventListener('click', () => {
+      const val = document.getElementById('passcode-input').value.trim();
+      if (val === String(CONFIG.passcode).trim()) {
+        document.getElementById('passcode-error').textContent = '';
+        ensureAudioContext();
+        playSkyChime(587.33);
+        const bgm = document.getElementById('bgm-player');
+        bgm.play().catch(() => {});
+        jumpToStage(1);
+      } else {
+        document.getElementById('passcode-error').textContent = '密碼不正確喔，請輸入專屬的 4 位數字 ✦';
+        if (navigator.vibrate) navigator.vibrate(120);
+      }
+    });
+
+    document.getElementById('bgm-toggle-btn').addEventListener('click', () => {
+      const bgm = document.getElementById('bgm-player');
+      if (bgm.paused) {
+        bgm.play().catch(() => {});
+        document.getElementById('bgm-toggle-btn').style.opacity = '1';
+      } else {
+        bgm.pause();
+        document.getElementById('bgm-toggle-btn').style.opacity = '0.5';
+      }
+    });
+
+    /******************************************************************
+     * 5. STAGE 1: Three.js 3D《光·遇》風格世界與虛擬搖桿奔跑
+     ******************************************************************/
+    let threeScene, threeCamera, threeRenderer, playerGroup, partnerGroup, capeMesh, starParticles;
+    let currentKm = 12680;
+    let joyVec = { x: 0, y: 0 };
+    let ch1Completed = false;
+
+    function initThreeSkyWorld() {
+      const container = document.getElementById('three-container');
+      if (threeRenderer) return; // 避免重複初始化
+
+      threeScene = new THREE.Scene();
+      threeScene.fog = new THREE.FogExp2(0x0c1428, 0.025);
+
+      threeCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
+      threeCamera.position.set(0, 2.3, 6.5);
+      threeCamera.lookAt(0, 1.8, -10);
+
+      threeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      threeRenderer.setSize(window.innerWidth, window.innerHeight);
+      threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(threeRenderer.domElement);
+
+      // 柔和環境光與天際暖金光
+      const ambLight = new THREE.AmbientLight(0x6d85b8, 1.1);
+      threeScene.add(ambLight);
+
+      const horizonLight = new THREE.PointLight(0xf6d365, 2.6, 120);
+      horizonLight.position.set(0, 6, -45);
+      threeScene.add(horizonLight);
+
+      // 星光淺灘反射地面
+      const groundGeo = new THREE.PlaneGeometry(160, 260, 32, 32);
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: 0x101b35,
+        roughness: 0.25,
+        metalness: 0.6
+      });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      threeScene.add(ground);
+
+      // 建造主角小人 (光之子剪影 + 發光金色披風)
+      playerGroup = new THREE.Group();
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffe4a0,
+        emissiveIntensity: 0.65
+      });
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), bodyMat);
+      head.position.y = 1.35;
+      const torso = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.95, 16), bodyMat);
+      torso.position.y = 0.72;
+
+      const capeGeo = new THREE.PlaneGeometry(0.75, 1.05, 8, 8);
+      const capeMat = new THREE.MeshStandardMaterial({
+        color: 0xf6d365,
+        emissive: 0xfda085,
+        emissiveIntensity: 0.5,
+        side: THREE.DoubleSide
+      });
+      capeMesh = new THREE.Mesh(capeGeo, capeMat);
+      capeMesh.position.set(0, 0.85, 0.22);
+      capeMesh.rotation.x = 0.35;
+
+      playerGroup.add(head, torso, capeMesh);
+      playerGroup.position.set(0, 0, 0);
+      threeScene.add(playerGroup);
+
+      // 遠方天際線等待的另一半發光剪影與燈塔光柱
+      partnerGroup = new THREE.Group();
+      const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), bodyMat);
+      pHead.position.y = 1.35;
+      const pTorso = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.95, 16), bodyMat);
+      pTorso.position.y = 0.72;
+      const beaconGeo = new THREE.CylinderGeometry(0.15, 0.8, 35, 16, 1, true);
+      const beaconMat = new THREE.MeshBasicMaterial({
+        color: 0xf6d365,
+        transparent: true,
+        opacity: 0.22,
+        side: THREE.DoubleSide
+      });
+      const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+      beacon.position.y = 17;
+      partnerGroup.add(pHead, pTorso, beacon);
+      partnerGroup.position.set(0, 0, -45);
+      threeScene.add(partnerGroup);
+
+      // 漫天流光粒子
+      const pCount = 320;
+      const pPos = new Float32Array(pCount * 3);
+      for (let i = 0; i < pCount * 3; i += 3) {
+        pPos[i] = (Math.random() - 0.5) * 45;
+        pPos[i + 1] = Math.random() * 14 + 0.2;
+        pPos[i + 2] = -Math.random() * 65 + 10;
+      }
+      const pGeo = new THREE.BufferGeometry();
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+      const pMat = new THREE.PointsMaterial({ color: 0xf6d365, size: 0.18, transparent: true, opacity: 0.8 });
+      starParticles = new THREE.Points(pGeo, pMat);
+      threeScene.add(starParticles);
+
+      animateThreeWorld();
+    }
+
+    let clockTime = 0;
+    function animateThreeWorld() {
+      requestAnimationFrame(animateThreeWorld);
+      if (!threeRenderer) return;
+      clockTime += 0.05;
+
+      // 當玩家推動搖桿時前進並倒數公里數
+      const moveIntensity = Math.max(0, -joyVec.y); // 往上推為前進
+      if (moveIntensity > 0.08 && !ch1Completed) {
+        const stepDecrement = (Number(CONFIG.stepKm) || 45) * moveIntensity * 0.45;
+        currentKm = Math.max(0, currentKm - stepDecrement);
+        document.getElementById('km-counter').textContent = Math.round(currentKm).toLocaleString();
+
+        // 小人左右微幅移動與跳躍律動
+        playerGroup.position.x = THREE.MathUtils.clamp(playerGroup.position.x + joyVec.x * 0.08, -2.5, 2.5);
+        playerGroup.position.y = Math.abs(Math.sin(clockTime * 2.6)) * 0.16;
+        capeMesh.rotation.x = 0.45 + Math.sin(clockTime * 4) * 0.18;
+
+        // 計算奔跑進度 ratio (0 -> 1)
+        const total = Number(CONFIG.totalKm) || 12680;
+        const progress = 1 - (currentKm / total);
+
+        // 讓遠方的你在終點逐漸靠近
+        partnerGroup.position.z = -45 + progress * 42.5;
+
+        // 動態對焦天空上的台灣街景與德州夜色照片
+        const blurPx = Math.max(0, (1 - progress) * 18).toFixed(1);
+        const opacityVal = (0.25 + progress * 0.7).toFixed(2);
+        const twCard = document.getElementById('sky-photo-tw');
+        const usCard = document.getElementById('sky-photo-us');
+        twCard.style.filter = `blur(${blurPx}px)`;
+        usCard.style.filter = `blur(${blurPx}px)`;
+        twCard.style.opacity = opacityVal;
+        usCard.style.opacity = opacityVal;
+
+        // 隨距離切換三階段雙語字幕
+        const zhEl = document.getElementById('ch1-zh-sub');
+        const enEl = document.getElementById('ch1-en-sub');
+        if (progress < 0.35) {
+          zhEl.textContent = CONFIG.ch1Sub1Zh;
+          enEl.textContent = CONFIG.ch1Sub1En;
+        } else if (progress < 0.78) {
+          zhEl.textContent = CONFIG.ch1Sub2Zh;
+          enEl.textContent = CONFIG.ch1Sub2En;
+        } else {
+          zhEl.textContent = CONFIG.ch1Sub3Zh;
+          enEl.textContent = CONFIG.ch1Sub3En;
+        }
+
+        // 當距離歸零，兩人相遇綻放光芒，無縫進入第二章美術館
+        if (currentKm <= 0 && !ch1Completed) {
+          ch1Completed = true;
+          playSkyChime(783.99);
+          zhEl.textContent = "距離 0 KM｜我們終於在星光下緊緊相擁 ✦";
+          enEl.textContent = "0 KM — Together at last. Entering our Midnight Museum…";
+          setTimeout(() => { jumpToStage(2); }, 2300);
+        }
+      } else {
+        playerGroup.position.y = Math.sin(clockTime) * 0.04;
+        capeMesh.rotation.x = 0.3 + Math.sin(clockTime * 1.5) * 0.05;
+      }
+
+      // 粒子緩緩向玩家飄動製造奔跑速度感
+      if (starParticles) {
+        starParticles.position.z += (moveIntensity > 0.08 ? 0.25 : 0.03);
+        if (starParticles.position.z > 15) starParticles.position.z = 0;
+      }
+
+      threeRenderer.render(threeScene, threeCamera);
+    }
+
+    // 綁定螢幕虛擬搖桿觸控與滑鼠事件
+    (function setupVirtualJoystick() {
+      const zone = document.getElementById('joystick-zone');
+      const knob = document.getElementById('joystick-knob');
+      let dragging = false;
+      const maxRadius = 42;
+
+      function updateJoy(clientX, clientY) {
+        const rect = zone.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        let dx = clientX - cx;
+        let dy = clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxRadius) {
+          dx = (dx / dist) * maxRadius;
+          dy = (dy / dist) * maxRadius;
+        }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        joyVec.x = dx / maxRadius;
+        joyVec.y = dy / maxRadius;
+      }
+
+      function resetJoy() {
+        dragging = false;
+        knob.style.transform = `translate(0px, 0px)`;
+        joyVec.x = 0;
+        joyVec.y = 0;
+      }
+
+      zone.addEventListener('pointerdown', e => {
+        dragging = true;
+        zone.setPointerCapture(e.pointerId);
+        updateJoy(e.clientX, e.clientY);
+      });
+      zone.addEventListener('pointermove', e => {
+        if (dragging) updateJoy(e.clientX, e.clientY);
+      });
+      zone.addEventListener('pointerup', resetJoy);
+      zone.addEventListener('pointercancel', resetJoy);
+    })();
+
+    /******************************************************************
+     * 6. STAGE 2: 午夜微型美術館
+     ******************************************************************/
+    function renderMuseumCards() {
+      const track = document.getElementById('gallery-track');
+      track.innerHTML = '';
+      (CONFIG.museum || []).forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'art-frame-card';
+        card.innerHTML = `
+          <div class="art-img-box">
+            <img src="${item.img}" alt="Museum Art ${idx + 1}" />
+          </div>
+          <div class="art-plaque">
+            <div class="art-plaque-title">${item.title}</div>
+            <div class="art-plaque-date">${item.date}</div>
+            <div class="art-plaque-desc">${item.desc}</div>
+          </div>
+        `;
+        card.addEventListener('click', () => playSkyChime(659.25));
+        track.appendChild(card);
+      });
+    }
+
+    document.getElementById('to-ch3-btn').addEventListener('click', () => {
+      playSkyChime(659.25);
+      jumpToStage(3);
+    });
+
+    /******************************************************************
+     * 7. STAGE 3: 跨越太平洋的微光收音機
+     ******************************************************************/
+    let listenedFreqs = new Set();
+
+    function renderRadioChips() {
+      const box = document.getElementById('freq-chips-box');
+      box.innerHTML = '';
+      (CONFIG.radio || []).forEach((item, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'freq-chip' + (listenedFreqs.has(idx) ? ' done' : '');
+        chip.textContent = item.label;
+        chip.addEventListener('click', () => {
+          document.getElementById('radio-slider').value = item.freq;
+          handleRadioTune(item.freq);
+        });
+        box.appendChild(chip);
+      });
+    }
+
+    function handleRadioTune(val) {
+      const numVal = parseFloat(val).toFixed(1);
+      document.getElementById('freq-val').textContent = numVal;
+      const matchedIdx = (CONFIG.radio || []).findIndex(r => Math.abs(parseFloat(r.freq) - parseFloat(numVal)) < 0.25);
+
+      if (matchedIdx !== -1) {
+        const target = CONFIG.radio[matchedIdx];
+        listenedFreqs.add(matchedIdx);
+        renderRadioChips();
+        playSkyChime(740);
+        if (navigator.vibrate) navigator.vibrate(50);
+        document.getElementById('freq-status').textContent = `✦ 已鎖定專屬訊號：${target.label}`;
+        document.getElementById('voice-transcript').textContent = target.transcript;
+
+        // 若有上傳真實語音則自動播放，並調低背景樂音量
+        if (target.audio) {
+          const vp = document.getElementById('voice-player');
+          const bgm = document.getElementById('bgm-player');
+          bgm.volume = 0.12;
+          vp.src = target.audio;
+          vp.play().catch(() => {});
+          vp.onended = () => { bgm.volume = Number(CONFIG.bgmVol) || 0.45; };
+        }
+      } else {
+        document.getElementById('freq-status').textContent = '沙沙雜訊中…請對準上方紀念頻率';
+      }
+    }
+
+    document.getElementById('radio-slider').addEventListener('input', e => {
+      handleRadioTune(e.target.value);
+    });
+
+    document.getElementById('to-ch4-btn').addEventListener('click', () => {
+      playSkyChime(698.46);
+      jumpToStage(4);
+    });
+
+    /******************************************************************
+     * 8. STAGE 4: 擦拭玻璃窗迷霧 ＆ 星空連線
+     ******************************************************************/
+    let fogCleared = false;
+    function initMistyWindow() {
+      fogCleared = false;
+      document.getElementById('to-ch5-btn').style.display = 'none';
+      document.getElementById('ch4-hint-text').textContent = '請用手指在玻璃窗上來回輕擦，抹去我們之間的霧氣…';
+
+      const box = document.getElementById('window-frame-box');
+      const fogCvs = document.getElementById('fog-canvas');
+      const starCvs = document.getElementById('star-canvas');
+      const w = box.clientWidth || 330;
+      const h = box.clientHeight || 410;
+      fogCvs.width = starCvs.width = w;
+      fogCvs.height = starCvs.height = h;
+
+      const fCtx = fogCvs.getContext('2d');
+      fCtx.globalCompositeOperation = 'source-over';
+      const grad = fCtx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, 'rgba(215, 228, 248, 0.94)');
+      grad.addColorStop(1, 'rgba(175, 195, 225, 0.96)');
+      fCtx.fillStyle = grad;
+      fCtx.fillRect(0, 0, w, h);
+
+      fCtx.fillStyle = 'rgba(30, 45, 75, 0.65)';
+      fCtx.font = '16px "Noto Serif TC", serif';
+      fCtx.textAlign = 'center';
+      fCtx.fillText('用指尖擦乾十幾個小時的時差霧氣…', w / 2, h / 2);
+
+      let wiping = false;
+      let wipeMoves = 0;
+
+      function scratch(x, y) {
+        fCtx.globalCompositeOperation = 'destination-out';
+        const radGrad = fCtx.createRadialGradient(x, y, 6, x, y, 36);
+        radGrad.addColorStop(0, 'rgba(0,0,0,1)');
+        radGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        fCtx.fillStyle = radGrad;
+        fCtx.beginPath();
+        fCtx.arc(x, y, 36, 0, Math.PI * 2);
+        fCtx.fill();
+
+        wipeMoves++;
+        if (wipeMoves > 48 && !fogCleared) {
+          fogCleared = true;
+          fogCvs.style.transition = 'opacity 1.2s ease';
+          fogCvs.style.opacity = '0';
+          playSkyChime(880);
+          startStarConstellation(starCvs);
+        }
+      }
+
+      fogCvs.onpointerdown = e => {
+        wiping = true;
+        const r = fogCvs.getBoundingClientRect();
+        scratch(e.clientX - r.left, e.clientY - r.top);
+      };
+      fogCvs.onpointermove = e => {
+        if (!wiping) return;
+        const r = fogCvs.getBoundingClientRect();
+        scratch(e.clientX - r.left, e.clientY - r.top);
+      };
+      fogCvs.onpointerup = () => { wiping = false; };
+    }
+
+    function startStarConstellation(starCvs) {
+      document.getElementById('ch4-hint-text').textContent = '✨ 霧氣散開了！請依序點擊夜空中閃爍的星星，連成我們的未來小屋';
+      starCvs.style.pointerEvents = 'auto';
+      const sCtx = starCvs.getContext('2d');
+      const w = starCvs.width;
+      const h = starCvs.height;
+
+      // 屋頂與小屋輪廓的 5 顆星座標
+      const pts = [
+        { x: w * 0.5, y: h * 0.16 },
+        { x: w * 0.8, y: h * 0.36 },
+        { x: w * 0.72, y: h * 0.72 },
+        { x: w * 0.28, y: h * 0.72 },
+        { x: w * 0.2, y: h * 0.36 }
+      ];
+      let currentStar = 0;
+
+      function drawStars() {
+        sCtx.clearRect(0, 0, w, h);
+        // 畫已連接線條
+        if (currentStar > 0) {
+          sCtx.strokeStyle = '#f6d365';
+          sCtx.lineWidth = 2.5;
+          sCtx.shadowColor = '#f6d365';
+          sCtx.shadowBlur = 10;
+          sCtx.beginPath();
+          sCtx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i <= currentStar && i < pts.length; i++) {
+            sCtx.lineTo(pts[i].x, pts[i].y);
+          }
+          if (currentStar >= pts.length) sCtx.lineTo(pts[0].x, pts[0].y);
+          sCtx.stroke();
+        }
+        // 畫星星節點
+        pts.forEach((p, idx) => {
+          sCtx.beginPath();
+          const isNext = idx === currentStar;
+          sCtx.arc(p.x, p.y, isNext ? 11 : 7, 0, Math.PI * 2);
+          sCtx.fillStyle = idx <= currentStar ? '#f6d365' : 'rgba(255,255,255,0.6)';
+          sCtx.fill();
+        });
+      }
+      drawStars();
+
+      starCvs.onclick = e => {
+        if (currentStar >= pts.length) return;
+        const r = starCvs.getBoundingClientRect();
+        const cx = e.clientX - r.left;
+        const cy = e.clientY - r.top;
+        const target = pts[currentStar];
+        if (Math.hypot(cx - target.x, cy - target.y) < 48) {
+          currentStar++;
+          playSkyChime(520 + currentStar * 75);
+          drawStars();
+          if (currentStar >= pts.length) {
+            document.getElementById('ch4-hint-text').textContent = '「雖然台灣與德州日夜顛倒，但我們正走向同一個家。」';
+            document.getElementById('to-ch5-btn').style.display = 'inline-block';
+          }
+        }
+      };
+    }
+
+    document.getElementById('to-ch5-btn').addEventListener('click', () => {
+      playSkyChime(783.99);
+      jumpToStage(5);
+    });
+
+    /******************************************************************
+     * 9. STAGE 5: 未來房間開箱 ＆ 真實麥克風吹蠟燭 ＆ 5秒掌心心跳
+     ******************************************************************/
+    let unpackedCount = 0;
+
+    function renderUnpackGrid() {
+      unpackedCount = 0;
+      const grid = document.getElementById('furniture-grid');
+      grid.innerHTML = '';
+      (CONFIG.unpack || []).forEach((item, idx) => {
+        const slot = document.createElement('div');
+        slot.className = 'furn-slot';
+        slot.id = `furn-slot-${idx}`;
+        slot.innerHTML = `
+          <div style="font-size:1.7rem;">${item.icon}</div>
+          <div style="font-size:0.8rem; margin-top:4px; color:var(--gold);">${item.name}</div>
+        `;
+        grid.appendChild(slot);
+      });
+      document.getElementById('parcel-count').textContent = `0/${(CONFIG.unpack || []).length}`;
+      document.getElementById('unpack-trigger-Area').style.display = 'block';
+      document.getElementById('candle-section').style.display = 'none';
+      document.getElementById('palm-section').style.display = 'none';
+    }
+
+    document.getElementById('parcel-btn').addEventListener('click', () => {
+      const list = CONFIG.unpack || [];
+      if (unpackedCount < list.length) {
+        const item = list[unpackedCount];
+        const slot = document.getElementById(`furn-slot-${unpackedCount}`);
+        if (slot) slot.classList.add('placed');
+        document.getElementById('unpack-quote-box').textContent = `「${item.quote}」`;
+        unpackedCount++;
+        document.getElementById('parcel-count').textContent = `${unpackedCount}/${list.length}`;
+        playSkyChime(580 + unpackedCount * 60);
+
+        if (unpackedCount >= list.length) {
+          setTimeout(() => {
+            document.getElementById('unpack-trigger-Area').style.display = 'none';
+            document.getElementById('candle-section').style.display = 'flex';
+            document.getElementById('unpack-quote-box').textContent = '最後一樣禮物：為遠在德州的你點亮生日蛋糕！';
+          }, 900);
+        }
+      }
+    });
+
+    // 吹熄蠟燭邏輯（支援真實麥克風吹氣偵測 + 點擊/長按雙保險）
+    let candleBlown = false;
+    function extinguishCandle() {
+      if (candleBlown) return;
+      candleBlown = true;
+      document.getElementById('candle-flame').textContent = '✨🎂✨';
+      document.getElementById('candle-flame').style.animation = 'none';
+      playSkyChime(880);
+      if (navigator.vibrate) navigator.vibrate([80, 50, 120]);
+
+      if (CONFIG.bdayAudio) {
+        const vp = document.getElementById('voice-player');
+        vp.src = CONFIG.bdayAudio;
+        vp.play().catch(() => {});
+      }
+
+      setTimeout(() => {
+        document.getElementById('candle-section').style.display = 'none';
+        document.getElementById('palm-section').style.display = 'flex';
+        document.getElementById('unpack-quote-box').textContent = '生日願望已送達星空！現在，請接收最後一封跨海信件…';
+      }, 1500);
+    }
+
+    document.getElementById('candle-flame').addEventListener('click', extinguishCandle);
+
+    document.getElementById('mic-enable-btn').addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        ensureAudioContext();
+        const src = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        src.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+
+        document.getElementById('mic-enable-btn').textContent = '🌬️ 請對著手機下方麥克風吹一口氣！（或點此直接吹熄）';
+        document.getElementById('mic-enable-btn').onclick = extinguishCandle;
+
+        function checkBlow() {
+          if (candleBlown) {
+            stream.getTracks().forEach(t => t.stop());
+            return;
+          }
+          analyser.getByteFrequencyData(data);
+          let lowFreqSum = 0;
+          for (let i = 0; i < 18; i++) lowFreqSum += data[i];
+          if (lowFreqSum / 18 > 85) {
+            stream.getTracks().forEach(t => t.stop());
+            extinguishCandle();
+            return;
+          }
+          requestAnimationFrame(checkBlow);
+        }
+        checkBlow();
+      } catch (err) {
+        // 若麥克風權限未開，直接觸發吹熄，絕不卡關
+        extinguishCandle();
+      }
+    });
+
+    // 5秒掌心心跳長按解鎖最終長信
+    (function setupPalmHold() {
+      const btn = document.getElementById('palm-btn');
+      const timerEl = document.getElementById('palm-timer');
+      let holdInterval = null;
+      let beatInterval = null;
+      let heldSec = 0;
+
+      function startHold(e) {
+        e.preventDefault();
+        if (holdInterval) return;
+        btn.classList.add('pulsing');
+        playHeartbeatThump();
+        beatInterval = setInterval(playHeartbeatThump, 750);
+        holdInterval = setInterval(() => {
+          heldSec += 0.1;
+          timerEl.textContent = Math.min(5.0, heldSec).toFixed(1);
+          if (heldSec >= 5.0) {
+            stopHold();
+            playSkyChime(1046.5);
+            openFinalLetter();
+          }
+        }, 100);
+      }
+
+      function stopHold() {
+        clearInterval(holdInterval);
+        clearInterval(beatInterval);
+        holdInterval = null;
+        beatInterval = null;
+        btn.classList.remove('pulsing');
+        if (heldSec < 5.0) {
+          heldSec = 0;
+          timerEl.textContent = '0.0';
+        }
+      }
+
+      btn.addEventListener('pointerdown', startHold);
+      btn.addEventListener('pointerup', stopHold);
+      btn.addEventListener('pointerleave', stopHold);
+      btn.addEventListener('pointercancel', stopHold);
+    })();
+
+    /******************************************************************
+     * 10. 終極親筆生日信 ＆ 破關紀念登機證自動繪製 (Canvas)
+     ******************************************************************/
+    function openFinalLetter() {
+      document.getElementById('final-letter-modal').style.display = 'flex';
+      drawCommemorativeTicket();
+    }
+
+    function drawCommemorativeTicket() {
+      const cvs = document.getElementById('ticket-canvas');
+      const ctx = cvs.getContext('2d');
+      const w = cvs.width;
+      const h = cvs.height;
+
+      // 背景深邃星夜金邊底卡
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, '#11192e');
+      grad.addColorStop(0.6, '#1f2947');
+      grad.addColorStop(1, '#12172a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // 金色外框
+      ctx.strokeStyle = '#f6d365';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(18, 18, w - 36, h - 36);
+
+      // 登機證頂部標題
+      ctx.fillStyle = '#f6d365';
+      ctx.font = 'bold 26px "Cormorant Garamond", serif';
+      ctx.fillText('STARLIGHT BOARDING PASS  |  DEAR HOWARD', 44, 62);
+
+      ctx.fillStyle = 'rgba(248,245,240,0.75)';
+      ctx.font = '16px "Noto Serif TC", sans-serif';
+      ctx.fillText(CONFIG.logoSub || 'Every step leads me to you.', 44, 90);
+
+      // 航線資訊 TPE -> CLL (Texas A&M)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 44px "Cormorant Garamond", serif';
+      ctx.fillText('TPE', 44, 165);
+      ctx.fillStyle = '#f6d365';
+      ctx.font = '28px sans-serif';
+      ctx.fillText('────── ✈ 12,680 KM ──────▸', 145, 160);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 44px "Cormorant Garamond", serif';
+      ctx.fillText('CLL', 555, 165);
+
+      ctx.fillStyle = 'rgba(248,245,240,0.75)';
+      ctx.font = '15px "Noto Serif TC", sans-serif';
+      ctx.fillText('台北 TAIPEI, TAIWAN', 44, 192);
+      ctx.fillText('德州 TEXAS A&M UNIVERSITY', 470, 192);
+
+      // 破關當下雙時區時間戳記
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('zh-TW', { timeZone: 'America/Chicago' });
+      const twT = now.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false });
+      const usT = now.toLocaleTimeString('en-US', { timeZone: 'America/Chicago', hour: '2-digit', minute: '2-digit', hour12: false });
+
+      ctx.fillStyle = '#f6d365';
+      ctx.font = '16px "Noto Serif TC", sans-serif';
+      ctx.fillText(`PASSENGER: HOWARD`, 44, 255);
+      ctx.fillText(`DATE: ${dateStr}`, 280, 255);
+      ctx.fillText(`GATE: 1119`, 520, 255);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`TAIPEI TIME: ${twT}   |   TEXAS TIME: ${usT}`, 44, 295);
+
+      // 底部紀念語
+      ctx.fillStyle = 'rgba(246, 211, 101, 0.85)';
+      ctx.font = 'italic 17px "Cormorant Garamond", serif';
+      ctx.fillText(CONFIG.ticketNote || 'VALID FOREVER • EVERY STEP LEADS ME TO YOU', 44, 365);
+    }
+
+    document.getElementById('download-ticket-btn').addEventListener('click', () => {
+      const cvs = document.getElementById('ticket-canvas');
+      const link = document.createElement('a');
+      link.download = 'DEAR_HOWARD_BoardingPass.png';
+      link.href = cvs.toDataURL('image/png');
+      link.click();
+    });
+
+    document.getElementById('replay-game-btn').addEventListener('click', () => {
+      document.getElementById('final-letter-modal').style.display = 'none';
+      ch1Completed = false;
+      candleBlown = false;
+      currentKm = Number(CONFIG.totalKm) || 12680;
+      document.getElementById('km-counter').textContent = currentKm.toLocaleString();
+      jumpToStage(0);
+    });
+
+    /******************************************************************
+     * 11. 場景切換控制器 (jumpToStage)
+     ******************************************************************/
+    const STAGE_IDS = ['stage-intro', 'stage-ch1', 'stage-ch2', 'stage-ch3', 'stage-ch4', 'stage-ch5'];
+    function jumpToStage(idx) {
+      STAGE_IDS.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (i === idx) el.classList.add('active');
+        else el.classList.remove('active');
+      });
+      if (idx === 0) playIntroSequence();
+      if (idx === 1) initThreeSkyWorld();
+      if (idx === 4) setTimeout(initMistyWindow, 200);
+      if (idx === 5) renderUnpackGrid();
+      document.getElementById('admin-modal').style.display = 'none';
+    }
+
+    /******************************************************************
+     * 12. 超級隱藏後台管理中心 (SUPER ADMIN CMS) 完整邏輯
+     ******************************************************************/
+    // 右上角連點 5 下或網址帶 ?admin=1 開啟後台
+    let secretTapCount = 0;
+    let secretTapTimer = null;
+    document.getElementById('admin-secret-trigger').addEventListener('click', () => {
+      secretTapCount++;
+      clearTimeout(secretTapTimer);
+      secretTapTimer = setTimeout(() => { secretTapCount = 0; }, 1800);
+      if (secretTapCount >= 5) {
+        secretTapCount = 0;
+        openAdminModal();
+      }
+    });
+
+    if (window.location.search.includes('admin=1')) {
+      setTimeout(openAdminModal, 600);
+    }
+
+    // 後台分頁切換
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.getElementById('close-admin-btn').addEventListener('click', () => {
+      document.getElementById('admin-modal').style.display = 'none';
+    });
+
+    function openAdminModal() {
+      populateAdminFields();
+      document.getElementById('admin-modal').style.display = 'flex';
+    }
+
+    function populateAdminFields() {
+      document.getElementById('cfg-passcode').value = CONFIG.passcode || '1119';
+      document.getElementById('cfg-totalKm').value = CONFIG.totalKm || 12680;
+      document.getElementById('cfg-stepKm').value = CONFIG.stepKm || 45;
+      document.getElementById('cfg-bgmVol').value = CONFIG.bgmVol || 0.45;
+
+      document.getElementById('cfg-introSalutation').value = CONFIG.introSalutation || '';
+      document.getElementById('cfg-introZh').value = CONFIG.introZh || '';
+      document.getElementById('cfg-introEn').value = CONFIG.introEn || '';
+      document.getElementById('cfg-logoZh').value = CONFIG.logoZh || '';
+      document.getElementById('cfg-logoEn').value = CONFIG.logoEn || '';
+      document.getElementById('cfg-logoSub').value = CONFIG.logoSub || '';
+
+      document.getElementById('cfg-ch1Sub1Zh').value = CONFIG.ch1Sub1Zh || '';
+      document.getElementById('cfg-ch1Sub1En').value = CONFIG.ch1Sub1En || '';
+      document.getElementById('cfg-ch1Sub2Zh').value = CONFIG.ch1Sub2Zh || '';
+      document.getElementById('cfg-ch1Sub2En').value = CONFIG.ch1Sub2En || '';
+      document.getElementById('cfg-ch1Sub3Zh').value = CONFIG.ch1Sub3Zh || '';
+      document.getElementById('cfg-ch1Sub3En').value = CONFIG.ch1Sub3En || '';
+
+      document.getElementById('cfg-candlePrompt').value = CONFIG.candlePrompt || '';
+      document.getElementById('cfg-finalLetter').value = CONFIG.finalLetter || '';
+      document.getElementById('cfg-ticketNote').value = CONFIG.ticketNote || '';
+
+      document.getElementById('cfg-bgmUrl').value = CONFIG.bgmUrl || '';
+      document.getElementById('cfg-voice0').value = (CONFIG.radio[0] && CONFIG.radio[0].audio) || '';
+      document.getElementById('cfg-voice1').value = (CONFIG.radio[1] && CONFIG.radio[1].audio) || '';
+      document.getElementById('cfg-voice2').value = (CONFIG.radio[2] && CONFIG.radio[2].audio) || '';
+      document.getElementById('cfg-bdayAudio').value = CONFIG.bdayAudio || '';
+
+      // 動態生成美術館 3 幅畫編輯欄
+      const mBox = document.getElementById('admin-museum-fields');
+      mBox.innerHTML = '';
+      (CONFIG.museum || []).forEach((m, i) => {
+        mBox.innerHTML += `
+          <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:8px; margin-top:8px;">
+            <div class="form-group"><label>畫作 ${i+1} 標題</label><input type="text" id="cfg-m-title-${i}" value="${m.title}" /></div>
+            <div class="form-group"><label>畫作 ${i+1} 日期/副標</label><input type="text" id="cfg-m-date-${i}" value="${m.date}" /></div>
+            <div class="form-group"><label>畫作 ${i+1} 典藏心裡話</label><textarea id="cfg-m-desc-${i}">${m.desc}</textarea></div>
+          </div>
+        `;
+      });
+
+      // 動態生成收音機 3 個頻率編輯欄
+      const rBox = document.getElementById('admin-radio-fields');
+      rBox.innerHTML = '';
+      (CONFIG.radio || []).forEach((r, i) => {
+        rBox.innerHTML += `
+          <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:8px; margin-top:8px;">
+            <div class="form-group"><label>頻率 ${i+1} 數字 (88.0 ~ 115.0)</label><input type="text" id="cfg-r-freq-${i}" value="${r.freq}" /></div>
+            <div class="form-group"><label>頻率 ${i+1} 標籤名稱</label><input type="text" id="cfg-r-label-${i}" value="${r.label}" /></div>
+            <div class="form-group"><label>頻率 ${i+1} 語音字幕內容</label><textarea id="cfg-r-trans-${i}">${r.transcript}</textarea></div>
+          </div>
+        `;
+      });
+
+      // 動態生成第五章 4 個開箱物品編輯欄
+      const uBox = document.getElementById('admin-unpack-fields');
+      uBox.innerHTML = '';
+      (CONFIG.unpack || []).forEach((u, i) => {
+        uBox.innerHTML += `
+          <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:8px; margin-top:8px;">
+            <div class="form-group"><label>物品 ${i+1} 圖示與名稱</label><input type="text" id="cfg-u-name-${i}" value="${u.name}" /></div>
+            <div class="form-group"><label>物品 ${i+1} 未來期許短句</label><input type="text" id="cfg-u-quote-${i}" value="${u.quote}" /></div>
+          </div>
+        `;
+      });
+
+      // 讀取本機保存的 GitHub 連線資訊
+      document.getElementById('gh-owner').value = localStorage.getItem('GH_OWNER') || '';
+      document.getElementById('gh-repo').value = localStorage.getItem('GH_REPO') || '';
+      document.getElementById('gh-branch').value = localStorage.getItem('GH_BRANCH') || 'main';
+      document.getElementById('gh-token').value = localStorage.getItem('GH_TOKEN') || '';
+    }
+
+    function collectAdminFieldsToConfig() {
+      CONFIG.passcode = document.getElementById('cfg-passcode').value.trim();
+      CONFIG.totalKm = Number(document.getElementById('cfg-totalKm').value) || 12680;
+      CONFIG.stepKm = Number(document.getElementById('cfg-stepKm').value) || 45;
+      CONFIG.bgmVol = Number(document.getElementById('cfg-bgmVol').value) || 0.45;
+
+      CONFIG.introSalutation = document.getElementById('cfg-introSalutation').value;
+      CONFIG.introZh = document.getElementById('cfg-introZh').value;
+      CONFIG.introEn = document.getElementById('cfg-introEn').value;
+      CONFIG.logoZh = document.getElementById('cfg-logoZh').value;
+      CONFIG.logoEn = document.getElementById('cfg-logoEn').value;
+      CONFIG.logoSub = document.getElementById('cfg-logoSub').value;
+
+      CONFIG.ch1Sub1Zh = document.getElementById('cfg-ch1Sub1Zh').value;
+      CONFIG.ch1Sub1En = document.getElementById('cfg-ch1Sub1En').value;
+      CONFIG.ch1Sub2Zh = document.getElementById('cfg-ch1Sub2Zh').value;
+      CONFIG.ch1Sub2En = document.getElementById('cfg-ch1Sub2En').value;
+      CONFIG.ch1Sub3Zh = document.getElementById('cfg-ch1Sub3Zh').value;
+      CONFIG.ch1Sub3En = document.getElementById('cfg-ch1Sub3En').value;
+
+      CONFIG.candlePrompt = document.getElementById('cfg-candlePrompt').value;
+      CONFIG.finalLetter = document.getElementById('cfg-finalLetter').value;
+      CONFIG.ticketNote = document.getElementById('cfg-ticketNote').value;
+
+      CONFIG.bgmUrl = document.getElementById('cfg-bgmUrl').value;
+      CONFIG.bdayAudio = document.getElementById('cfg-bdayAudio').value;
+
+      (CONFIG.museum || []).forEach((m, i) => {
+        m.title = document.getElementById(`cfg-m-title-${i}`).value;
+        m.date = document.getElementById(`cfg-m-date-${i}`).value;
+        m.desc = document.getElementById(`cfg-m-desc-${i}`).value;
+      });
+
+      (CONFIG.radio || []).forEach((r, i) => {
+        r.freq = document.getElementById(`cfg-r-freq-${i}`).value;
+        r.label = document.getElementById(`cfg-r-label-${i}`).value;
+        r.transcript = document.getElementById(`cfg-r-trans-${i}`).value;
+        r.audio = document.getElementById(`cfg-voice${i}`).value;
+      });
+
+      (CONFIG.unpack || []).forEach((u, i) => {
+        u.name = document.getElementById(`cfg-u-name-${i}`).value;
+        u.quote = document.getElementById(`cfg-u-quote-${i}`).value;
+      });
+    }
+
+    // 內建「照片自動壓縮瘦身器」(Canvas 自動縮放至 1100px 並轉為高畫質輕量 JPEG Base64)
+    function handleImageUpload(event, targetKey) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const origKB = Math.round(file.size / 1024);
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1100;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+            else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+          }
+          const cvs = document.createElement('canvas');
+          cvs.width = w;
+          cvs.height = h;
+          const ctx = cvs.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressedDataUrl = cvs.toDataURL('image/jpeg', 0.82);
+          const newKB = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+
+          if (targetKey.startsWith('museum')) {
+            const idx = Number(targetKey.replace('museum', ''));
+            CONFIG.museum[idx].img = compressedDataUrl;
+          } else {
+            CONFIG[targetKey] = compressedDataUrl;
+          }
+          document.getElementById('compress-status').textContent =
+            `✅ 照片壓縮完成！原圖 ${origKB} KB ➔ 瘦身後 ${newKB} KB（已套用至設定）`;
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 音檔轉入處理
+    function handleAudioUpload(event, targetKey) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const dataUrl = e.target.result;
+        document.getElementById(`cfg-${targetKey}`).value = dataUrl;
+        document.getElementById('compress-status').textContent = `✅ 音訊檔「${file.name}」已載入！請記得點擊儲存或同步。`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveAdminToLocal() {
+      collectAdminFieldsToConfig();
+      localStorage.setItem('DEAR_HOWARD_CONFIG', JSON.stringify(CONFIG));
+      applyConfigToUI();
+      alert('✅ 已套用所有修改並儲存於本機！');
+    }
+
+    function exportConfigJson() {
+      collectAdminFieldsToConfig();
+      const blob = new Blob([JSON.stringify(CONFIG, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'config.json';
+      a.click();
+    }
+
+    // 一鍵將 config.json 同步推送至 GitHub 雲端倉庫
+    async function syncConfigToGitHub() {
+      collectAdminFieldsToConfig();
+      localStorage.setItem('DEAR_HOWARD_CONFIG', JSON.stringify(CONFIG));
+      applyConfigToUI();
+
+      const owner = document.getElementById('gh-owner').value.trim();
+      const repo = document.getElementById('gh-repo').value.trim();
+      const branch = document.getElementById('gh-branch').value.trim() || 'main';
+      const token = document.getElementById('gh-token').value.trim();
+      const statusEl = document.getElementById('gh-sync-status');
+
+      if (!owner || !repo || !token) {
+        statusEl.textContent = '⚠️ 請先在「GitHub 雲端同步設定」分頁填寫帳號、倉庫名稱與 Token！';
+        return;
+      }
+
+      localStorage.setItem('GH_OWNER', owner);
+      localStorage.setItem('GH_REPO', repo);
+      localStorage.setItem('GH_BRANCH', branch);
+      localStorage.setItem('GH_TOKEN', token);
+
+      statusEl.textContent = '⏳ 正在將最新遊戲設定、文字與壓縮照片同步至 GitHub 雲端...';
+
+      try {
+        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/config.json`;
+        let sha = undefined;
+
+        const getRes = await fetch(`${apiUrl}?ref=${branch}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.v3+json' }
+        });
+        if (getRes.ok) {
+          const fileData = await getRes.json();
+          sha = fileData.sha;
+        }
+
+        const jsonStr = JSON.stringify(CONFIG, null, 2);
+        const base64Content = btoa(unescape(encodeURIComponent(jsonStr)));
+
+        const putRes = await fetch(apiUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: 'Update DEAR HOWARD game config via Super Admin CMS',
+            content: base64Content,
+            branch: branch,
+            ...(sha ? { sha } : {})
+          })
+        });
+
+        if (putRes.ok) {
+          statusEl.textContent = '🎉 雲端同步成功！約 30~60 秒後，德州的 Howard 打開網址就會看到最新內容！';
+        } else {
+          const err = await putRes.json();
+          statusEl.textContent = `❌ 同步失敗：${err.message || '請檢查 Token 權限與倉庫名稱'}`;
+        }
+      } catch (err) {
+        statusEl.textContent = `❌ 網路或權限錯誤：${err.message}`;
+      }
+    }
+
+    // 啟動初始化
+    window.addEventListener('DOMContentLoaded', async () => {
+      initIntroStars();
+      await loadInitialConfig();
+      playIntroSequence();
+    });
+
+    window.addEventListener('resize', () => {
+      if (threeRenderer && threeCamera) {
+        threeCamera.aspect = window.innerWidth / window.innerHeight;
+        threeCamera.updateProjectionMatrix();
+        threeRenderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    });
+  </script>
+</body>
+</html>
